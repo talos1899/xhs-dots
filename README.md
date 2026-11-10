@@ -16,9 +16,42 @@
 
 搜索引擎给小红书内容的往往是 SEO 搬运号；小红书原帖里有具体的店名、价格、排队时间、踩坑记录。对「本地生活 / 测评 / 避坑 / 穿搭 / 菜谱」这类问题，它比通用搜索更接近真实体验。
 
-## 快速开始
+## 跟钱有关的四个用法
 
-要求：Node.js **≥ 22**（用到内置 WebSocket）、本机装有 Edge 或 Chrome、能扫码登录小红书。
+| 用法 | 怎么问 | 你会得到 |
+|---|---|---|
+| 每日财经 | 「汇总今天小红书上关于金价/房贷/存款利率的讨论」 | 普通人在评论区到底怎么想，而不是财经号的通稿 |
+| 消费趋势 | 「最近一个月防晒品类的爆款笔记和差评点」 | 什么在涨、什么在崩、差评集中在哪 |
+| 爆款选题 | 「最近一周同类笔记的标题套路和评论区情绪」 | 能直接抄的标题结构 |
+| 避坑 | 「某家店 / 某个产品的真实差评」 | 比评分站更早的翻车信号 |
+
+## 一键安装
+
+任何系统、只要装了 Node 22+（不用注册、不用 API Key）：
+
+```bash
+npx -y github:talos1899/xhs-dots
+```
+
+Windows 也可以用 PowerShell 原生方式（不用管理员权限）：
+
+```powershell
+irm https://raw.githubusercontent.com/talos1899/xhs-dots/main/install.ps1 | iex
+```
+
+macOS / Linux：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/talos1899/xhs-dots/main/install.sh | bash
+```
+
+它会：检查 Node ≥ 22 → 下载解压到 `~/.xhs-dots-src` → 装成技能目录并注册开机自启 → 打开浏览器等你扫码。装完直接：
+
+```bash
+xhs-dots ask "最近一个月防晒的消费趋势"
+```
+
+只想手动来一遍？三个命令：
 
 ```bash
 git clone https://github.com/talos1899/xhs-dots.git

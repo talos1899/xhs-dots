@@ -1,6 +1,6 @@
 {
   "name": "xhs-dots",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "让 AI 自己去查小红书：CDP 驱动本机已登录浏览器，点点 AI 问答 + 关键词搜索，只读限速",
   "type": "module",
   "bin": {
@@ -14,18 +14,30 @@
     "scripts",
     "SKILL.md",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "dsh",
+    "cordis.patch.yml"
   ],
   "keywords": [
     "xiaohongshu",
     "rednote",
     "cdp",
     "agent-skill",
-    "deepseek-harness"
+    "deepseek-harness",
+    "dsh-plugin"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/talos1899/xhs-dots"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "exports": {
+    ".": "./dsh/index.mjs",
+    "./package.json": "./package.json"
   }
 }

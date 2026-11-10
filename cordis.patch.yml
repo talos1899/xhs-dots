@@ -1,0 +1,5 @@
+# dsh bundle layer：把 xhs-dots 挂进 profile。
+# name 必须是包名本身（loader 用它 import 包根导出，即 dsh/index.mjs）。
+- insert:
+    - id: xhs-dots
+      name: "xhs-dots"

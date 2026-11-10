@@ -1,5 +1,5 @@
 // 问小红书「点点 AI」：它会自己检索平台笔记并总结成回答。
-// usage: node scripts/dots.mjs ask "问题" [--timeout 120]
+// usage: node scripts/dots.mjs ask "问题" [--timeout 120] [--wait-login 120]
 //        node scripts/dots.mjs status
 import { page, evaluate, waitFor, sleep } from './cdp.mjs';
 
@@ -16,10 +16,32 @@ const SNAP = `(() => {
   };
 })()`;
 
-async function ask(question, { timeout = 120 } = {}) {
+async function ask(question, { timeout = 120, waitLogin = 0 } = {}) {
   const p = await page();
   try {
-    await p.send('Page.navigate', { url: HOME });
+    // 已经在点点页就不要重复导航：反复整页刷新最容易触发风控
+    const onDots = await evaluate(p, `location.href.includes('/ai_chat') && !!document.querySelector('textarea')`);
+    if (!onDots) await p.send('Page.navigate', { url: HOME });
+
+    // 风控/登录墙检测：被要求扫码时，等用户扫（--wait-login）或直接报清楚
+    const walled = async () => evaluate(p, `(() => {
+      const t = document.body ? document.body.innerText : '';
+      return /扫码登录|登录后查看|请先登录|安全验证|滑动验证/.test(t) || /\\/login/.test(location.href);
+    })()`).catch(() => false);
+
+    if (await walled()) {
+      if (!waitLogin) {
+        throw new Error('小红书要求登录/验证：请在弹出的浏览器窗口里用 App 扫码，然后重跑（或加 --wait-login 120 让我等你扫）');
+      }
+      const t0 = Date.now();
+      process.stderr.write('[xhs-dots] 需要扫码：请在浏览器窗口里用小红书 App 扫一下，我在等你…\n');
+      while (Date.now() - t0 < waitLogin * 1000) {
+        await sleep(3000);
+        if (!(await walled())) break;
+      }
+      if (await walled()) throw new Error(`等了 ${waitLogin} 秒还没扫码成功，先手动登一下再跑`);
+      if (!/\/ai_chat/.test(await evaluate(p, 'location.href'))) await p.send('Page.navigate', { url: HOME });
+    }
 
     // 输入框是 textarea[name=aiSearchTextarea]；页面上有两个，真正的那个不带 aria-hidden
     const ready = await waitFor(p, `(() => {
@@ -115,12 +137,12 @@ for (let i = 1; i < argv.length; i++) {
 
 try {
   if (cmd === 'ask') {
-    const r = await ask(positional.join(' '), { timeout: Number(flags.timeout || 120) });
+    const r = await ask(positional.join(' '), { timeout: Number(flags.timeout || 120), waitLogin: Number(flags['wait-login'] || 0) });
     console.log(JSON.stringify(r, null, 2));
   } else if (cmd === 'status') {
     console.log(JSON.stringify(await status(), null, 2));
   } else {
-    console.log('usage: node scripts/dots.mjs ask "问题" [--timeout 120] | status');
+    console.log('usage: node scripts/dots.mjs ask "问题" [--timeout 120] [--wait-login 120] | status');
   }
 } catch (e) {
   console.error('ERROR: ' + e.message);

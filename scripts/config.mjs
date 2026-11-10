@@ -64,7 +64,6 @@ export function launchDetached(browser, args) {
     const child = spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps], {
       stdio: 'ignore',
       windowsHide: true,
-      detached: true,
     });
     child.unref();
     return child;

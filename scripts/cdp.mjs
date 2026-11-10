@@ -1,7 +1,24 @@
 // 极简 CDP 客户端：只用 Node 内置 WebSocket（Node >= 22），无第三方依赖。
-import { BASE_URL } from './config.mjs';
+import { BASE_URL, browserArgs, launchDetached, probe, resolveBrowser } from './config.mjs';
 
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/** 浏览器没起来就拉起来（幂等），返回 'already-running' | 'started' */
+export async function ensureBrowser({ timeout = 30000, quiet = false } = {}) {
+  if (await probe()) return 'already-running';
+  const exe = resolveBrowser();
+  if (!exe) {
+    throw new Error('没找到 Edge / Chrome，可用 XHS_BROWSER=/path/to/chrome 指定可执行文件');
+  }
+  if (!quiet) console.error('[xhs-dots] 浏览器没在跑，正在启动…');
+  launchDetached(exe, browserArgs());
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeout) {
+    if (await probe()) return 'started';
+    await sleep(600);
+  }
+  throw new Error(`浏览器启动失败：${exe}（Windows 上必须在文件沙箱外运行，见 README FAQ）`);
+}
 
 export async function version() {
   const r = await fetch(`${BASE_URL}/json/version`);
@@ -81,7 +98,14 @@ export async function findPage() {
 }
 
 export async function page() {
-  return attach(await findPage());
+  try {
+    return await attach(await findPage());
+  } catch (e) {
+    const msg = String(e && e.message);
+    if (!/fetch failed|浏览器没在调试端口|ECONNREFUSED/i.test(msg)) throw e;
+    await ensureBrowser();
+    return attach(await findPage());
+  }
 }
 
 export async function evaluate(p, expression) {

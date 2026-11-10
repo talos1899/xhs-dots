@@ -54,7 +54,26 @@ async function noteDetail(p, id, token) {
   }
 
   const dom = await waitFor(p, `!!document.querySelector('#detail-desc, .note-text, .desc')`, { timeout: 10000 });
-  if (!dom) throw new Error('详情页没加载出来（需要登录，或链接缺少 xsec_token）');
+  if (!dom) {
+    // 风控：小红书会把可疑请求/无 token 的笔记跳到 404?error_code=300031「当前笔记暂时无法浏览」
+    const block = await evaluate(p, `(() => {
+      const t = document.body ? document.body.innerText : '';
+      const u = location.href;
+      const m = u.match(/error_msg=([^&]+)/);
+      return {
+        risk: /300031|sec_|\\/404/.test(u) || /暂时无法浏览|安全验证|扫码登录/.test(t),
+        reason: m ? decodeURIComponent(m[1]) : '',
+        url: u.slice(0, 120),
+      };
+    })()`).catch(() => null);
+    if (block && block.risk) {
+      throw new Error(
+        '被风控拦了：' + (block.reason || '当前笔记暂时无法浏览') +
+        (token ? '（token 已失效，重新 search 拿新链接）' : '（这个笔记需要带 xsec_token 的链接：用 search 结果里的 url，或加 --xsec）')
+      );
+    }
+    throw new Error('详情页没加载出来（需要登录，或链接缺少 xsec_token）');
+  }
   return evaluate(p, `(() => ({
     title: ((document.querySelector('#detail-title, .title') || {}).innerText || '').trim(),
     desc: ((document.querySelector('#detail-desc, .note-text, .desc') || {}).innerText || '').replace(/\\s+/g, ' ').trim(),

@@ -2,6 +2,7 @@
 // usage: node scripts/dots.mjs ask "问题" [--timeout 120] [--wait-login 120]
 //        node scripts/dots.mjs status
 import { page, evaluate, waitFor, sleep } from './cdp.mjs';
+import { typeHuman, humanClick, pause, readPause } from './human.mjs';
 
 const HOME = 'https://www.xiaohongshu.com/ai_chat?from=sidebar';
 
@@ -53,22 +54,31 @@ async function ask(question, { timeout = 120, waitLogin = 0 } = {}) {
     })()`, { timeout: 20000 });
     if (!ready) throw new Error('没找到点点输入框：可能未登录，或页面改版');
 
-    // 必须用 Input.insertText 走真实输入事件；直接改 value 会被前端框架重置
-    await p.send('Input.insertText', { text: question });
-    await sleep(600);
+    // 先清空输入框，避免上一次的残留
+    await evaluate(p, `[...document.querySelectorAll('textarea')].forEach(e => {
+      if (e.value) { e.focus(); e.setSelectionRange(0, e.value.length); }
+    })`);
+    await p.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8 });
+    await p.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8 });
+
+    // 逐字输入（带随机停顿）：比一次性 insertText 更像人
+    await pause(600, 1500);
+    await typeHuman(p, question);
+    await pause(400, 1100);
 
     const typed = await evaluate(p, `[...document.querySelectorAll('textarea')].some(e => (e.value || '').length > 1)`);
     if (!typed) throw new Error('文字没输进去（输入框没聚焦？）');
 
-    const sent = await evaluate(p, `(() => {
+    const btnBox = await evaluate(p, `(() => {
       const btn = [...document.querySelectorAll('.wendian-btn--sendable, .bottom-box button')]
         .filter(b => b.offsetParent)
         .find(b => /sendable/.test(b.className) || /send|arrow/i.test((b.querySelector('use') || {}).getAttribute?.('href') || ''));
-      if (!btn) return false;
-      btn.click();
-      return true;
+      if (!btn) return null;
+      const r = btn.getBoundingClientRect();
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
     })()`);
-    if (!sent) throw new Error('没找到发送按钮（页面改版？）');
+    if (!btnBox) throw new Error('没找到发送按钮（页面改版？）');
+    await humanClick(p, btnBox.x, btnBox.y);
 
     let last = '';
     let stable = 0;

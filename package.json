@@ -1,6 +1,6 @@
 {
   "name": "xhs-dots",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "让 AI 自己去查小红书：CDP 驱动本机已登录浏览器，点点 AI 问答 + 关键词搜索，只读限速",
   "type": "module",
   "bin": {
